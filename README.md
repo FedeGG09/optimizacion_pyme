@@ -1,2 +1,1 @@
-# optimizacion_pyme
-para streamlit
+# Optimizaci-n_inventario_PYMES

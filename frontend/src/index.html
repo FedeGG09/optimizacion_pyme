@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Interactivo de Ventas</title>
+
+  <!-- CSS del dashboard (glassmorphism) -->
+  <link rel="stylesheet" href="/static/css/dashboard.css" />
+  <link rel="stylesheet" href="/static/css/styles.css" />
+
+  <!-- Chart.js desde CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Estilo para forzar texto negro en predicción -->
+  <style>
+    .prediction-card,
+    .prediction-card h2,
+    .prediction-card label,
+    .prediction-card select,
+    .prediction-card input,
+    .prediction-card button {
+      color: #000 !important;
+    }
+  </style>
+</head>
+<body>
+  <!-- HEADER PRINCIPAL -->
+  <header>
+    <div class="header-left">
+      <img
+        src="https://img.icons8.com/bubbles/50/ffffff/sales-performance.png"
+        alt="Ícono Ventas"
+      />
+      <h1>Dashboard Interactivo de Ventas</h1>
+    </div>
+  </header>
+
+  <!-- UPLOADER CSV -->
+  <section id="uploader" class="uploader-section">
+    <h2>1. Carga tu CSV de Entrenamiento</h2>
+    <input type="file" id="csvFileInput" accept=".csv" />
+    <button id="uploadBtn" disabled>Subir CSV</button>
+    <p id="uploadStatus"></p>
+  </section>
+
+  <!-- CONTENEDOR PRINCIPAL (OCULTO HASTA UPLOAD) -->
+  <main id="actions" style="display: none;">
+    <!-- 1. FILA DE KPIs -->
+    <section class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-title">Ventas Totales</div>
+        <div class="kpi-value" id="kpi-total-sales">--</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Utilidad Promedio</div>
+        <div class="kpi-value" id="kpi-avg-profit">--</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Cantidad de Ventas</div>
+        <div class="kpi-value" id="kpi-sale-count">--</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Ventas Promedio</div>
+        <div class="kpi-value" id="kpi-avg-sales">--</div>
+      </div>
+    </section>
+
+    <!-- 2. FILA DE SELECTORES -->
+    <section class="filter-row">
+      <div class="filter-item">
+        <label for="month-range">Mes:</label>
+        <input type="month" id="month-range" />
+      </div>
+      <div class="filter-item">
+        <label for="vendor-select">Cliente (Customer Name):</label>
+        <select id="vendor-select">
+          <option value="Todos">Todos</option>
+        </select>
+      </div>
+      <div class="filter-item">
+        <label for="product-select">Producto (Product Name):</label>
+        <select id="product-select">
+          <option value="Todos">Todos</option>
+        </select>
+      </div>
+      <div class="filter-item">
+        <label for="group-by">Agrupar por:</label>
+        <select id="group-by">
+          <option value="Region">Region</option>
+          <option value="Category">Category</option>
+          <option value="Sub-Category">Sub-Category</option>
+          <option value="Product Name">Product Name</option>
+          <option value="State">State</option>
+          <option value="Postal Code">Postal Code</option>
+          <option value="Product ID">Product ID</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- 3. GRÁFICO DE LÍNEAS -->
+    <section class="chart-section">
+      <h2 id="line-chart-title">Ventas 2020 por Cliente</h2>
+      <canvas id="line-chart" height="250"></canvas>
+    </section>
+
+    <!-- 4. GRÁFICOS INFERIORES -->
+    <section class="bottom-charts">
+      <div class="chart-card">
+        <h3>Ventas Totales</h3>
+        <canvas id="bar-chart" height="200"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Utilidad vs Ingresos por Producto</h3>
+        <canvas id="scatter-chart" height="200"></canvas>
+      </div>
+    </section>
+
+    <!-- 5. SECCIÓN DE PREDICCIÓN MANUAL DE VENTAS -->
+    <section class="prediction-section">
+      <div class="prediction-card">
+        <h2>🔮 Predicción de Profit / Quantity</h2>
+        <form id="prediction-form">
+          <!-- Región -->
+          <div class="form-row">
+            <label for="region">Región:</label>
+            <select id="region" required></select>
+          </div>
+          <!-- Product ID -->
+          <div class="form-row">
+            <label for="product">Product ID:</label>
+            <select id="product" required></select>
+          </div>
+          <!-- Sub-Category -->
+          <div class="form-row">
+            <label for="subcat">Sub-Category:</label>
+            <select id="subcat" required></select>
+          </div>
+          <!-- Fecha -->
+          <div class="form-row">
+            <label for="date">Fecha:</label>
+            <input type="date" id="date" required />
+          </div>
+          <!-- Selector de modelo -->
+          <div class="form-row">
+            <label for="model-select">Modelo:</label>
+            <select id="model-select" required>
+              <option value="profit">Profit</option>
+              <option value="quantity">Quantity</option>
+            </select>
+          </div>
+          <button type="submit" class="btn-green">Predecir</button>
+        </form>
+
+        <!-- Resultados y errores -->
+        <div id="prediction-result" class="prediction-result"></div>
+        <div id="prediction-error" class="prediction-error" style="color:red;"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- CARGA DEL JS DEL FRONTEND -->
+  <script src="/static/js/upload.js"></script>
+  <script src="/static/js/metrics.js"></script>
+  <script src="/static/js/dashboard.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
+
