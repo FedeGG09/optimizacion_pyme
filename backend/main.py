@@ -2,6 +2,7 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+
 from pydantic import BaseModel
 from typing import List
 import pandas as pd
@@ -215,96 +216,56 @@ def get_grouped_data(
     return {"data": grouped.to_dict("records")}
 
 # -------------------------------------------------------
-# 7) Predicción “baja nivel” (listas de features)
+# 7) Metadata para selects
 # -------------------------------------------------------
-@app.post("/predict/profit", response_model=PredictionOut)
-def predict_profit(payload: PredictionIn):
-    from backend.model_utils import load_feature_names  # local import
-    cols  = load_feature_names()  # features_Profit.pkl
-    if len(payload.features) != len(cols):
-        raise HTTPException(400, f"Se esperaban {len(cols)} features")
-    df = pd.DataFrame([payload.features], columns=cols)
-    pred = load_profit_model().predict(df)[0]
-    return {"prediction": float(pred)}
-
-@app.post("/predict/quantity", response_model=PredictionOut)
-def predict_quantity(payload: PredictionIn):
-    from backend.model_utils import load_feature_names  # local import
-    cols  = load_feature_names()  # features_Quantity.pkl
-    if len(payload.features) != len(cols):
-        raise HTTPException(400, f"Se esperaban {len(cols)} features")
-    df = pd.DataFrame([payload.features], columns=cols)
-    pred = load_quantity_model().predict(df)[0]
-    return {"prediction": float(pred)}
-
-# -------------------------------------------------------
-# 8) Endpoint de configuración de features
-# -------------------------------------------------------
-@app.get("/predict/config")
-def get_prediction_config():
-    # Para formularios dinámicos, aunque ya no se usa en by_fields
-    profit_feats   = joblib.load(MODELS_DIR / "features_Profit.pkl")
-    quantity_feats = joblib.load(MODELS_DIR / "features_Quantity.pkl")
-    return {"profit": profit_feats, "quantity": quantity_feats}
-
-# -------------------------------------------------------
-# 11) Endpoints para poblar dropdowns
-# -------------------------------------------------------
-
 @app.get("/metadata/regions")
 def get_regions():
-    """
-    Devuelve la lista de todas las regiones únicas del CSV subido.
-    """
     df = _get_df()
     if "Region" not in df.columns:
         raise HTTPException(500, "No existe la columna 'Region'.")
-    regions = sorted(df["Region"].dropna().unique().tolist())
-    return regions
+    return sorted(df["Region"].dropna().unique().tolist())
 
 @app.get("/metadata/products")
 def get_products():
-    """
-    Devuelve la lista de todos los nombres de producto únicos.
-    """
     df = _get_df()
     if "Product Name" not in df.columns:
         raise HTTPException(500, "No existe la columna 'Product Name'.")
-    prods = sorted(df["Product Name"].dropna().unique().tolist())
-    return prods
+    return sorted(df["Product Name"].dropna().unique().tolist())
 
 @app.get("/metadata/subcategories")
 def get_subcategories():
-    """
-    Devuelve la lista de todas las sub-categorías únicas.
-    """
     df = _get_df()
     if "Sub-Category" not in df.columns:
         raise HTTPException(500, "No existe la columna 'Sub-Category'.")
-    subs = sorted(df["Sub-Category"].dropna().unique().tolist())
-    return subs
+    return sorted(df["Sub-Category"].dropna().unique().tolist())
 
 # -------------------------------------------------------
-# 9) Predicción a partir de campos sencillos
+# 8) Predicción simplified por campos
 # -------------------------------------------------------
 @app.post("/predict/by_fields", response_model=PredictionOut)
 def predict_by_fields(
-    region:      str = Query(..., description="Región"),
-    product_id:  str = Query(..., description="Product ID"),
-    sub_category:str = Query(..., description="Sub-Category"),
-    order_date:  str = Query(..., description="Fecha (YYYY-MM-DD)"),
-    model:       str = Query("profit", regex="^(profit|quantity)$")
+    region:        str = Query(..., description="Región (p.ej. West)"),
+    product_name:  str = Query(..., description="Product Name (p.ej. iPhone 12)"),
+    sub_category:  str = Query(..., description="Sub-Category"),
+    order_date:    str = Query(..., description="Fecha (YYYY-MM-DD)"),
+    model:         str = Query("profit", regex="^(profit|quantity)$")
 ):
     try:
-        df_feat = build_features(region, product_id, sub_category, order_date, model_type=model)
-        mdl     = load_profit_model() if model=="profit" else load_quantity_model()
-        pred    = mdl.predict(df_feat)[0]
+        df_feat = build_features(
+            region=region,
+            product_name=product_name,
+            sub_category=sub_category,
+            order_date=order_date,
+            model_type=model
+        )
+        mdl  = load_profit_model() if model=="profit" else load_quantity_model()
+        pred = mdl.predict(df_feat)[0]
         return {"prediction": float(pred)}
     except Exception as e:
-        raise HTTPException(400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 # -------------------------------------------------------
-# 10) Tendencia de ventas (sales_trend)
+# 9) Tendencia de ventas (sales_trend)
 # -------------------------------------------------------
 @app.get("/sales_trend")
 def sales_trend(
