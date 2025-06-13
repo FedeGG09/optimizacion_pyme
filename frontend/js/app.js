@@ -1,7 +1,15 @@
+ChatGPT Plus
+js
+Copiar
+Editar
+// app.js
+// Archivo principal que orquesta la carga de los módulos frontend.
+// Carga upload.js, metrics.js y dashboard.js, y expone initPredictionByFields()
+// para poblar y manejar el formulario de predicción.
+
 console.log('Demo Sales Forecasting cargado');
 
 document.addEventListener('DOMContentLoaded', () => {
-  // 1) Carga dinámica de módulos: upload, metrics y dashboard
   const scripts = [
     '/static/js/upload.js',
     '/static/js/metrics.js',
@@ -28,67 +36,71 @@ document.addEventListener('DOMContentLoaded', () => {
         await loadScript(src);
       }
       console.log('Todos los módulos frontend han sido cargados.');
-      // 2) Una vez cargados, inicializamos la lógica de predicción simplificada
-      await initPredictionByFields();
+      // No llamamos initPredictionByFields aquí — lo haremos en upload.js tras subir el CSV.
     } catch (err) {
-      console.error(err);
+      console.error('Error cargando módulos frontend:', err);
     }
   })();
 });
 
-async function initPredictionByFields() {
-  const form       = document.getElementById("prediction-form");
-  const regionSel  = document.getElementById("region");
-  const productSel = document.getElementById("product");
-  const subcatSel  = document.getElementById("subcat");
-  const dateInput  = document.getElementById("date");
-  const modelSel   = document.getElementById("model-select");
-  const resultDiv  = document.getElementById("prediction-result");
-  const errorDiv   = document.getElementById("prediction-error");
 
-  if (!form) {
-    console.warn("No encontré #prediction-form en el DOM");
+// Esta función pobla los selects y maneja el submit del formulario de predicción.
+// Debe llamarse tras un upload exitoso: window.initPredictionByFields()
+async function initPredictionByFields() {
+  const regionSel      = document.getElementById("region");
+  const productNameSel = document.getElementById("product-name");
+  const subcatSel      = document.getElementById("subcat");
+  const dateInput      = document.getElementById("date");
+  const modelSel       = document.getElementById("model-select");
+  const resultDiv      = document.getElementById("prediction-result");
+  const errorDiv       = document.getElementById("prediction-error");
+  const form           = document.getElementById("prediction-form");
+
+  // Limpiar mensajes previos
+  if (errorDiv)  errorDiv.textContent  = "";
+  if (resultDiv) resultDiv.textContent = "";
+
+  if (!form || !regionSel || !productNameSel || !subcatSel) {
+    console.warn("Elementos de predicción no encontrados.");
     return;
   }
 
+  // 1) Cargar listas para dropdowns
   try {
-    // 1) Carga listas para los dropdowns
     const [regions, products, subcats] = await Promise.all([
-      fetch('/metadata/regions').then(r => r.json()),
-      fetch('/metadata/products').then(r => r.json()),
-      fetch('/metadata/subcategories').then(r => r.json())
+      fetch('/metadata/regions').then(r => r.ok ? r.json() : Promise.reject(r.status)),
+      fetch('/metadata/products').then(r => r.ok ? r.json() : Promise.reject(r.status)),
+      fetch('/metadata/subcategories').then(r => r.ok ? r.json() : Promise.reject(r.status))
     ]);
 
-    // 2) Rellenar selects
-    regions.forEach(r => regionSel.add(new Option(r, r)));
-    products.forEach(p => productSel.add(new Option(p, p)));
-    subcats.forEach(s => subcatSel.add(new Option(s, s)));
+    regionSel.innerHTML      = regions.map(r => `<option value="${r}">${r}</option>`).join('');
+    productNameSel.innerHTML = products.map(p => `<option value="${p}">${p}</option>`).join('');
+    subcatSel.innerHTML      = subcats.map(s => `<option value="${s}">${s}</option>`).join('');
   } catch (err) {
-    console.error("Error cargando metadata:", err);
-    errorDiv.textContent = "No se pudo cargar las listas de selección.";
+    console.error('Error cargando metadatos:', err);
+    errorDiv.textContent = 'No se pudo cargar las listas de selección.';
     return;
   }
 
-  // 3) Manejar submit del formulario con POST JSON
+  // 2) Manejar envío del formulario
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     resultDiv.textContent = "Calculando…";
     errorDiv.textContent  = "";
 
-    // Prepara el payload
     const payload = {
-      region:       regionSel.value,
-      product_id:   productSel.value,
-      sub_category: subcatSel.value,
-      order_date:   dateInput.value,
-      model:        modelSel.value
+      region:        regionSel.value,
+      product_name:  productNameSel.value,
+      sub_category:  subcatSel.value,
+      order_date:    dateInput.value,
+      model:         modelSel.value
     };
 
     try {
       const resp = await fetch("/predict/by_fields", {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body:    JSON.stringify(payload)
       });
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
@@ -99,8 +111,10 @@ async function initPredictionByFields() {
     } catch (err) {
       errorDiv.textContent  = err.message;
       resultDiv.textContent = "";
-      console.error(err);
+      console.error('Error en predict/by_fields:', err);
     }
-  });
+  }, { once: true });
 }
 
+// Hacemos accesible la función para upload.js
+window.initPredictionByFields = initPredictionByFields;
